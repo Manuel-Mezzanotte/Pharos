@@ -1,0 +1,16 @@
+{
+  "name": "pharos",
+  "owner": {
+    "name": "Manuel Mezzanotte"
+  },
+  "metadata": {
+    "description": "Pharos: an interactive map of any codebase, for Claude Code"
+  },
+  "plugins": [
+    {
+      "name": "pharos",
+      "source": "./",
+      "description": "An interactive, Apple-style map of any codebase, in one browser page"
+    }
+  ]
+}

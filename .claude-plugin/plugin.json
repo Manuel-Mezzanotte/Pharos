@@ -1,0 +1,20 @@
+{
+  "name": "pharos",
+  "version": "0.5.0",
+  "description": "An interactive, Apple-style map of any codebase: an algorithm finds the blocks, parts and arrows from the code, Claude names them, and the page opens in the browser",
+  "author": {
+    "name": "Manuel Mezzanotte",
+    "url": "https://github.com/Manuel-Mezzanotte"
+  },
+  "homepage": "https://github.com/Manuel-Mezzanotte/Pharos",
+  "repository": "https://github.com/Manuel-Mezzanotte/Pharos",
+  "license": "MIT",
+  "keywords": [
+    "map",
+    "architecture",
+    "codebase",
+    "visualization",
+    "overview",
+    "claude-code"
+  ]
+}

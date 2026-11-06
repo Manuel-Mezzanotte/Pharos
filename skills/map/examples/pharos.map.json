@@ -1,0 +1,81 @@
+{
+  "title": "Pharos",
+  "lang": "it",
+  "summary": "Una skill che disegna la mappa a blocchi di un progetto in una pagina del browser.",
+  "nodes": [
+    {
+      "id": "instructions",
+      "name": "Istruzioni",
+      "kind": "docs",
+      "summary": "Dicono a Claude come leggere il progetto e scrivere la mappa.",
+      "about": "Il file SKILL.md è la ricetta: prima la panoramica del progetto, poi la mappa in un file JSON, poi la pagina. Contiene anche le regole per scegliere nomi chiari e il giusto livello di dettaglio.",
+      "paths": ["skills/map/SKILL.md"]
+    },
+    {
+      "id": "scanner",
+      "name": "Scanner",
+      "kind": "logic",
+      "summary": "Elenca i file e trova quale importa quale.",
+      "about": "Legge il progetto senza modificarlo: conta le righe, capisce gli import di JavaScript, Python, Go, Rust, Java, C e Dart, e prepara la panoramica che Claude legge.",
+      "paths": ["skills/map/scripts/scan.mjs"]
+    },
+    {
+      "id": "builder",
+      "name": "Costruttore",
+      "kind": "logic",
+      "summary": "Unisce la mappa di Claude ai collegamenti veri del codice.",
+      "about": "Assegna ogni file al blocco giusto, somma gli import tra i blocchi, controlla che la mappa sia coerente e scrive la pagina.",
+      "paths": ["skills/map/scripts/render.mjs"]
+    },
+    {
+      "id": "page",
+      "name": "Pagina",
+      "kind": "interface",
+      "summary": "La mappa che si vede nel browser: i blocchi si aprono e si chiudono.",
+      "paths": ["skills/map/assets/"],
+      "children": [
+        {
+          "id": "layout",
+          "name": "Disposizione",
+          "kind": "logic",
+          "summary": "Decide dove va ogni blocco e come si collegano.",
+          "paths": ["skills/map/assets/layout.js"]
+        },
+        {
+          "id": "interaction",
+          "name": "Interazione",
+          "kind": "interface",
+          "summary": "Clic, zoom, spostamento e pannello dei dettagli.",
+          "paths": ["skills/map/assets/app.js"]
+        },
+        {
+          "id": "look",
+          "name": "Aspetto",
+          "kind": "interface",
+          "summary": "Colori, forme e animazioni in stile Apple.",
+          "paths": ["skills/map/assets/style.css", "skills/map/assets/template.html"]
+        }
+      ]
+    },
+    {
+      "id": "tests",
+      "name": "Test",
+      "kind": "test",
+      "summary": "Controllano che scanner e disposizione facciano quello che devono.",
+      "paths": ["test/"]
+    },
+    {
+      "id": "browser",
+      "name": "Browser",
+      "kind": "external",
+      "summary": "Dove si apre la pagina: Safari, Chrome, Firefox o Zen."
+    }
+  ],
+  "links": [
+    { "from": "instructions", "to": "scanner", "label": "chiede la panoramica" },
+    { "from": "instructions", "to": "builder", "label": "chiede la pagina" },
+    { "from": "builder", "to": "scanner", "label": "usa i file letti" },
+    { "from": "builder", "to": "page", "label": "scrive la pagina" },
+    { "from": "page", "to": "browser", "label": "si apre in" }
+  ]
+}
