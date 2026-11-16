@@ -150,6 +150,7 @@ svg.i { width: 1em; height: 1em; display: block; fill: none; stroke: currentColo
    scheda grafica sposta; a gesto finito torna normale e si ridisegna nitida */
 #world.live, #world.moving { will-change: transform; }
 .moving .card { will-change: transform, opacity; }
+.ff #world.live, .ff #world.moving, .ff .moving .card { will-change: auto; }
 .many .inner { transition: box-shadow 0.25s var(--ease), transform 0.25s var(--ease); }
 .many .e, .many .frame { transition: none; }
 

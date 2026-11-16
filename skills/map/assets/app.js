@@ -360,11 +360,15 @@
   }
 
   // Durante un gesto la mappa resta un livello solo; le frecce si ridisegnano quando ci si ferma.
+  // Firefox (e Zen) spostano già la mappa sulla scheda grafica: accendere e spegnere il livello
+  // a ogni pausa del gesto lo fa solo sfarfallare. Altrove il livello resta acceso per tutto il gesto.
+  const isFirefox = /firefox/i.test(navigator.userAgent)
+  if (isFirefox) document.documentElement.classList.add('ff')
   let settleTimer = 0
   let edgesStale = false
   function interacting(staleEdges) {
     if (staleEdges) edgesStale = true
-    world.classList.add('live')
+    if (!isFirefox) world.classList.add('live')
     window.clearTimeout(settleTimer)
     settleTimer = window.setTimeout(() => {
       world.classList.remove('live')
@@ -372,7 +376,7 @@
         edgesStale = false
         drawEdges()
       }
-    }, 160)
+    }, 450)
   }
 
   function safeRect() {
