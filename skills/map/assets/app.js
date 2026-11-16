@@ -816,8 +816,8 @@
 
   function setAll(isOpen) {
     expanded.clear()
-    // anche in Dettaglio "Apri tutto" si ferma alle parti: tutti i file insieme sarebbero troppi
-    if (isOpen) for (const node of model.nodes.values()) if (node.children.length > 0 && !isFileId(node.children[0])) expanded.add(node.id)
+    // "Apri tutto" apre tutto quello che il livello mostra: in Dettaglio anche i file
+    if (isOpen) for (const node of model.nodes.values()) if (node.children.length > 0) expanded.add(node.id)
     save()
     userMoved = false
     relayout({ fit: true })
@@ -1653,6 +1653,8 @@
   // ---------------------------------------------------------------- livelli di dettaglio
   const levelsEl = $('lvl')
   function renderLevels() {
+    // in Semplice i blocchi non si aprono: aprire e chiudere tutto non servono
+    for (const id of ['b-open', 'b-close']) $(id).disabled = level === 'simple'
     levelsEl.setAttribute('aria-label', T.level)
     levelsEl.innerHTML = T.levels
       .map(([value, label]) => `<button type="button" class="btn${value === level ? ' on' : ''}" data-level="${value}" role="radio" aria-checked="${value === level}">${esc(label)}</button>`)

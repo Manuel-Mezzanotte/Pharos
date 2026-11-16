@@ -293,6 +293,7 @@ svg.i { width: 1em; height: 1em; display: block; fill: none; stroke: currentColo
 
 /* ---------------------------------------------------------------- livelli, schede dei file */
 .lvl .btn { padding: 0 11px; color: var(--ink-2); }
+.btn:disabled { opacity: 0.4; cursor: default; pointer-events: none; }
 .lvl .btn.on { background: var(--card); color: var(--ink); box-shadow: 0 0 0 0.5px var(--line), 0 1px 3px rgba(0, 0, 0, 0.12); }
 .card.file .name { font-family: var(--mono); font-size: 13px; letter-spacing: -0.01em; }
 .card.file .sum { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); word-break: break-all; }
