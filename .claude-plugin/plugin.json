@@ -1,6 +1,6 @@
 {
   "name": "pharos",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "An interactive, Apple-style map of any codebase: an algorithm finds the blocks, parts and arrows from the code, Claude names them, and the page opens in the browser",
   "author": {
     "name": "Manuel Mezzanotte",

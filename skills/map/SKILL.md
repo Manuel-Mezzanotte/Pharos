@@ -118,7 +118,7 @@ Four to six lines in their language:
 
 - the page opened in the browser, and its path;
 - the main blocks, and in one sentence how they fit together;
-- how to use it: click a block to open its section, hover one to light up its links, click a part for its files, ⌘K to search blocks, files and functions; the minimap (top right) moves the view, the settings button sets theme and colour, `?` lists the shortcuts;
+- how to use it: click a block to open its section, hover one to light up its links, click a part for its files, ⌘K to search blocks, files and functions; the levels in the bar switch between Simple (only the main blocks), Normal and Detail (the files inside each part you open, file by file), Shift-click a second block or file to light up the way between them, the minimap (top right) moves the view, the settings button sets theme and colour, `?` lists the shortcuts;
 - to see it again, `/map open` (or open `.pharos/map.html`); after the code changes, `/map` updates it and only reopens it when nothing changed. If the person has no `/map` command, say `/pharos:map` instead.
 
 Don't paste the JSON, don't list every block, and don't mention warnings you fixed.

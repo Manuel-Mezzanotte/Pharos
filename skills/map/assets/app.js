@@ -34,10 +34,12 @@
       activity: (when, n) => `Ultima modifica ${when}${n > 0 ? ` · ${n} ${n === 1 ? 'modifica' : 'modifiche'} in 90 giorni` : ''}`,
       keyUses: 'usa',
       kinds: { interface: 'Interfaccia', api: 'API', logic: 'Logica', data: 'Dati', external: 'Esterno', shared: 'Condiviso', tooling: 'Strumenti', test: 'Test', docs: 'Documenti', other: 'Altro' },
+      levels: [['simple', 'Semplice'], ['normal', 'Normale'], ['detail', 'Dettaglio']], level: 'Livello di dettaglio',
+      pathHint: 'Maiusc+clic su un altro blocco o file per vedere la strada che li collega',
       settings: 'Impostazioni', appearance: 'Aspetto', themeAuto: 'Automatico', themeLight: 'Chiaro', themeDark: 'Scuro', accent: 'Colore d’evidenza',
       accents: { blue: 'Blu', purple: 'Viola', pink: 'Rosa', orange: 'Arancione', green: 'Verde', graphite: 'Grafite' },
       minimap: 'Minimappa', labels: 'Nomi sulle frecce', motion: 'Animazioni', shortcuts: 'Scorciatoie da tastiera', actual: 'Dimensione reale',
-      keys: [['Cerca blocchi, file e funzioni', ['MOD', 'K']], ['Cerca', ['/']], ['Ingrandisci o riduci', ['+', '−']], ['Adatta alla finestra', ['0']], ['Dimensione reale', ['1']], ['Mostra o nascondi la minimappa', ['M']], ['Cambia tema', ['T']], ['Chiudi pannelli', ['Esc']], ['Queste scorciatoie', ['?']]],
+      keys: [['Cerca blocchi, file e funzioni', ['MOD', 'K']], ['Cerca', ['/']], ['Ingrandisci o riduci', ['+', '−']], ['Adatta alla finestra', ['0']], ['Dimensione reale', ['1']], ['Mostra o nascondi la minimappa', ['M']], ['Cambia tema', ['T']], ['Livello: semplice, normale, dettaglio', ['L']], ['Strada tra due blocchi o file', ['Maiusc', 'clic']], ['Chiudi pannelli', ['Esc']], ['Queste scorciatoie', ['?']]],
     },
     en: {
       expandAll: 'Open all', collapseAll: 'Close all', fit: 'Fit to window', zoomIn: 'Zoom in', zoomOut: 'Zoom out',
@@ -56,21 +58,91 @@
       activity: (when, n) => `Last change ${when}${n > 0 ? ` · ${n} ${n === 1 ? 'change' : 'changes'} in 90 days` : ''}`,
       keyUses: 'uses',
       kinds: { interface: 'Interface', api: 'API', logic: 'Logic', data: 'Data', external: 'External', shared: 'Shared', tooling: 'Tooling', test: 'Tests', docs: 'Docs', other: 'Other' },
+      levels: [['simple', 'Simple'], ['normal', 'Normal'], ['detail', 'Detail']], level: 'Level of detail',
+      pathHint: 'Shift-click another block or file to see the way that links them',
       settings: 'Settings', appearance: 'Appearance', themeAuto: 'Auto', themeLight: 'Light', themeDark: 'Dark', accent: 'Accent colour',
       accents: { blue: 'Blue', purple: 'Purple', pink: 'Pink', orange: 'Orange', green: 'Green', graphite: 'Graphite' },
       minimap: 'Minimap', labels: 'Names on arrows', motion: 'Animations', shortcuts: 'Keyboard shortcuts', actual: 'Actual size',
-      keys: [['Search blocks, files and functions', ['MOD', 'K']], ['Search', ['/']], ['Zoom in or out', ['+', '−']], ['Fit to window', ['0']], ['Actual size', ['1']], ['Show or hide the minimap', ['M']], ['Change theme', ['T']], ['Close panels', ['Esc']], ['These shortcuts', ['?']]],
+      keys: [['Search blocks, files and functions', ['MOD', 'K']], ['Search', ['/']], ['Zoom in or out', ['+', '−']], ['Fit to window', ['0']], ['Actual size', ['1']], ['Show or hide the minimap', ['M']], ['Change theme', ['T']], ['Level: simple, normal, detail', ['L']], ['Way between two blocks or files', ['Shift', 'click']], ['Close panels', ['Esc']], ['These shortcuts', ['?']]],
     },
   }
   const T = TEXT[D.lang] || TEXT.en
   const agoOf = seconds => T.ago(Math.floor((Date.now() / 1000 - seconds) / 86400))
 
   // ---------------------------------------------------------------- stato
-  const model = L.buildModel(D)
+  // Una mappa, tre livelli: Semplice (solo i blocchi del prodotto), Normale, Dettaglio (i file dentro le parti).
+  const BASE = new Map(D.nodes.map(node => [node.id, node]))
+  const baseModel = L.buildModel(D)
+  let model = baseModel
+  let level = 'normal'
   const nodeOf = id => model.nodes.get(id)
+  const isFileId = id => typeof id === 'string' && id.startsWith('f:')
   const FILES = D.files || []
   const importers = FILES.map(() => [])
   FILES.forEach((file, i) => (file.im || []).forEach(j => importers[j] && importers[j].push(i)))
+
+  const topOf = id => {
+    let node = BASE.get(id)
+    while (node.parent) node = BASE.get(node.parent)
+
+    return node.id
+  }
+  function modelFor(which) {
+    if (which === 'simple') {
+      // i blocchi del prodotto e i servizi, chiusi, con le frecce tra loro
+      const hide = new Set(['test', 'tooling', 'docs'])
+      const roots = D.roots.filter(id => !hide.has(BASE.get(id).kind))
+      const keep = new Set(roots)
+      const joined = new Map()
+      for (const edge of D.edges) {
+        const a = topOf(edge.a)
+        const b = topOf(edge.b)
+        if (a === b || !keep.has(a) || !keep.has(b)) continue
+        const key = `${a}>${b}`
+        const row = joined.get(key) || { a, b, w: 0, label: '', soft: true, declared: true }
+        row.w += edge.w
+        if (!edge.soft) row.soft = false
+        if (!edge.declared) row.declared = false
+        if (edge.label && edge.lf === a && edge.lt === b) Object.assign(row, { label: edge.label, lf: a, lt: b })
+        joined.set(key, row)
+      }
+
+      return L.buildModel({ roots, nodes: roots.map(id => ({ ...BASE.get(id), children: [] })), edges: [...joined.values()] })
+    }
+    if (which === 'detail') {
+      // ogni parte finale si apre nei suoi file; le frecce vanno da file a file
+      const nodes = []
+      const fileId = i => `f:${i}`
+      for (const node of D.nodes) {
+        const isLeaf = node.children.length === 0 && !node.external && (node.own || []).length > 0
+        nodes.push(isLeaf ? { ...node, children: node.own.map(fileId) } : node)
+        if (!isLeaf) continue
+        for (const i of node.own) {
+          const file = FILES[i]
+          nodes.push({ id: fileId(i), name: baseName(file.p), kind: node.kind, summary: dirName(file.p), about: file.d || '', parent: node.id, children: [], external: false, files: 1, loc: file.loc, own: [i], file: i, usedBy: importers[i].length, last: file.t, recent: file.c })
+        }
+      }
+      const between = new Map(D.edges.map(edge => [`${edge.a}>${edge.b}`, edge]))
+      const edges = D.edges.filter(edge => edge.declared || BASE.get(edge.a).external || BASE.get(edge.b).external)
+      FILES.forEach((file, i) => {
+        for (const j of file.im || []) {
+          const to = FILES[j]
+          if (to === undefined || j === i) continue
+          if (file.n === to.n) {
+            edges.push({ a: fileId(i), b: fileId(j), w: 1, label: '', declared: false, soft: false })
+            continue
+          }
+          const owners = between.get(`${file.n}>${to.n}`)
+          if (owners === undefined) continue
+          edges.push({ a: fileId(i), b: fileId(j), w: 1, label: owners.label, lf: owners.lf, lt: owners.lt, declared: false, soft: owners.soft })
+        }
+      })
+
+      return L.buildModel({ roots: D.roots, nodes, edges })
+    }
+
+    return baseModel
+  }
   const expanded = new Set()
   const cards = new Map()
   const cur = new Map()
@@ -117,7 +189,7 @@
 
   // Le impostazioni valgono per tutte le mappe: tema, colore, minimappa, nomi, animazioni.
   const PREFS = 'pharos:prefs'
-  const prefs = { theme: 'auto', accent: 'blue', minimap: true, labels: true, motion: true }
+  const prefs = { theme: 'auto', accent: 'blue', minimap: true, labels: true, motion: true, level: 'normal' }
   try {
     const saved = JSON.parse(localStorage.getItem(PREFS) || '{}')
     if (saved && typeof saved === 'object') for (const key of Object.keys(prefs)) if (typeof saved[key] === typeof prefs[key]) prefs[key] = saved[key]
@@ -153,7 +225,7 @@
   const filesUnder = id => {
     const out = []
     const visit = x => {
-      const node = nodeOf(x)
+      const node = BASE.get(x)
       out.push(...(node.own || []))
       for (const child of node.children) visit(child)
     }
@@ -165,9 +237,9 @@
   const nameCount = new Map()
   for (const node of D.nodes) nameCount.set(node.name, (nameCount.get(node.name) || 0) + 1)
   const labelOf = id => {
-    const node = nodeOf(id)
+    const node = BASE.get(id) || nodeOf(id)
 
-    return nameCount.get(node.name) > 1 && node.parent ? `${nodeOf(node.parent).name} › ${node.name}` : node.name
+    return nameCount.get(node.name) > 1 && node.parent ? `${BASE.get(node.parent).name} › ${node.name}` : node.name
   }
   const baseName = path => path.slice(path.lastIndexOf('/') + 1)
   const dirName = path => (path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '')
@@ -193,6 +265,7 @@
 
   // ---------------------------------------------------------------- blocchi
   function metaOf(node, withParts) {
+    if (node.file !== undefined) return [T.lines(node.loc), node.usedBy > 0 ? T.used(node.usedBy) : ''].filter(Boolean).join(' · ')
     if (node.external) return node.usedBy > 0 ? T.used(node.usedBy) : T.kinds.external
     const bits = [T.file(node.files), T.lines(node.loc)]
     if (withParts !== false && node.children.length > 0) bits.push(T.parts(node.children.length))
@@ -205,8 +278,9 @@
     if (el !== undefined) return el
     const node = nodeOf(id)
     const isGroup = node.children.length > 0
+    const isFile = node.file !== undefined
     el = document.createElement('div')
-    el.className = `card k-${node.kind}${isGroup ? ' group' : ''}${node.parent ? ' part' : ''}${node.external ? ' ext' : ''}`
+    el.className = `card k-${node.kind}${isGroup ? ' group' : ''}${node.parent ? ' part' : ''}${node.external ? ' ext' : ''}${isFile ? ' file' : ''}`
     el.dataset.id = id
     el.tabIndex = 0
     el.setAttribute('role', 'button')
@@ -217,7 +291,7 @@
       `<div class="inner"><div class="head"><span class="ico"><svg class="i"><use href="#i-${esc(node.kind)}"/></svg></span>` +
       `<span class="nm"><span class="name">${esc(node.name)}</span><span class="kd">${esc(T.kinds[node.kind] || node.kind)}</span></span></div>` +
       `<p class="sum">${esc(node.summary)}</p><div class="meta"><span class="txt">${esc(metaOf(node, false))}</span>` +
-      (isGroup ? `<span class="more">${esc(T.parts(node.children.length))}<svg class="i"><use href="#i-chev"/></svg></span>` : '') +
+      (isGroup ? `<span class="more">${esc(isFileId(node.children[0]) ? T.file(node.children.length) : T.parts(node.children.length))}<svg class="i"><use href="#i-chev"/></svg></span>` : '') +
       `</div>` +
       (isGroup ? `<button class="info" type="button" tabindex="-1" aria-label="${esc(T.details)}"><svg class="i"><use href="#i-info"/></svg></button>` : '') +
       `</div>`
@@ -519,7 +593,14 @@
     let keep = null
     const related = new Set()
     const hovered = hoverEdge !== null ? drawn.find(edge => edge.id === hoverEdge) : undefined
-    if (hovered !== undefined) {
+    if (path !== null && hover === null && hovered === undefined) {
+      keep = new Set()
+      for (const id of path.edges) lit.add(id)
+      for (const id of path.nodes) {
+        withAncestors(keep, id)
+        related.add(id)
+      }
+    } else if (hovered !== undefined) {
       lit.add(hovered.id)
       keep = new Set()
       withAncestors(keep, hovered.a)
@@ -731,7 +812,8 @@
 
   function setAll(isOpen) {
     expanded.clear()
-    if (isOpen) for (const node of D.nodes) if (node.children.length > 0) expanded.add(node.id)
+    // anche in Dettaglio "Apri tutto" si ferma alle parti: tutti i file insieme sarebbero troppi
+    if (isOpen) for (const node of model.nodes.values()) if (node.children.length > 0 && !isFileId(node.children[0])) expanded.add(node.id)
     save()
     userMoved = false
     relayout({ fit: true })
@@ -739,14 +821,14 @@
 
   // ---------------------------------------------------------------- pannello dei dettagli
   function relations(id) {
-    const inside = x => x === id || L.isAncestor(model, id, x)
+    const inside = x => x === id || L.isAncestor(baseModel, id, x)
     const out = new Map()
     const inn = new Map()
-    for (const edge of model.edges) {
+    for (const edge of baseModel.edges) {
       const aIn = inside(edge.a)
       const bIn = inside(edge.b)
       if (aIn === bIn) continue
-      const group = L.commonParent(model, id, aIn ? edge.b : edge.a).second
+      const group = L.commonParent(baseModel, id, aIn ? edge.b : edge.a).second
       if (!group) continue
       const map = aIn ? out : inn
       let row = map.get(group)
@@ -829,7 +911,7 @@
   }
 
   function renderPanel(id) {
-    const node = nodeOf(id)
+    const node = BASE.get(id)
     const rel = relations(id)
     const relRow = r => nodeRow(r.id, [r.label, r.declared ? '' : T.imports(r.w)].filter(Boolean).join(' · '))
     const section = (title, body) => (body ? `<h3>${esc(title)}</h3>${body}` : '')
@@ -851,9 +933,10 @@
       (node.last ? `<p class="p-act">${esc(T.activity(agoOf(node.last), node.recent || 0))}</p>` : '') +
       section(T.uses, rel.out.length ? `<ul class="rel">${rel.out.map(relRow).join('')}</ul>` : '') +
       section(T.usedBy, rel.inn.length ? `<ul class="rel">${rel.inn.map(relRow).join('')}</ul>` : '') +
-      section(T.parts2, node.children.length ? `<ul class="rel">${node.children.map(child => nodeRow(child, metaOf(nodeOf(child)))).join('')}</ul>` : '') +
+      section(T.parts2, node.children.length ? `<ul class="rel">${node.children.map(child => nodeRow(child, metaOf(BASE.get(child)))).join('')}</ul>` : '') +
       section(isLeaf ? T.allFiles(list.length) : T.topFiles, filesHtml) +
-      section(T.packages, node.packages && node.packages.length ? `<div class="pk">${node.packages.map(name => `<span>${esc(name)}</span>`).join('')}</div>` : '')
+      section(T.packages, node.packages && node.packages.length ? `<div class="pk">${node.packages.map(name => `<span>${esc(name)}</span>`).join('')}</div>` : '') +
+      `<p class="p-hint">${esc(T.pathHint)}</p>`
   }
 
   function toggleFile(row, isOpen) {
@@ -876,6 +959,7 @@
   }
 
   function closePanel() {
+    path = null
     if (selected === null) return
     selected = null
     isPanelOn = false
@@ -885,6 +969,8 @@
 
   // Apre i blocchi che contengono quello scelto e ci va.
   function goTo(id) {
+    // un blocco che a questo livello non c'è: si torna al livello normale
+    if (!model.nodes.has(id)) setLevel('normal')
     let isChanged = false
     for (const up of model.chain.get(id).slice(1)) {
       if (!expanded.has(up)) {
@@ -896,11 +982,66 @@
     selected = id
     isPanelOn = true
     relayout({ center: id })
+    if (isFileId(id)) {
+      openFile(nodeOf(id).file, id)
+
+      return
+    }
     renderPanel(id)
     panel.scrollTop = 0
   }
 
+  // Un file in Dettaglio: il pannello della sua parte, con il file aperto
+  function openFile(i, id) {
+    openPanel(FILES[i].n, true)
+    selected = id
+    setFocus()
+    const row = panel.querySelector(`.f[data-file="${i}"]`)
+    if (row === null) return
+    toggleFile(row, true)
+    row.scrollIntoView({ block: 'center' })
+  }
+
+  // La strada più corta tra due schede, sulle frecce che si vedono
+  let path = null
+  function showPath(from, to) {
+    const near = new Map()
+    for (const edge of edges) {
+      if (!cur.has(edge.a) || !cur.has(edge.b)) continue
+      for (const [x, y] of [[edge.a, edge.b], [edge.b, edge.a]]) {
+        if (!near.has(x)) near.set(x, [])
+        near.get(x).push({ to: y, edge })
+      }
+    }
+    const back = new Map([[from, null]])
+    const queue = [from]
+    while (queue.length > 0 && !back.has(to)) {
+      const x = queue.shift()
+      for (const step of near.get(x) || []) {
+        if (back.has(step.to)) continue
+        back.set(step.to, { from: x, edge: step.edge })
+        queue.push(step.to)
+      }
+    }
+    if (!back.has(to)) {
+      path = { nodes: new Set([from, to]), edges: new Set() }
+    } else {
+      path = { nodes: new Set([to]), edges: new Set() }
+      for (let x = to; back.get(x) !== null; x = back.get(x).from) {
+        path.edges.add(back.get(x).edge.id)
+        path.nodes.add(back.get(x).from)
+      }
+    }
+    setFocus()
+  }
+
   function goToFile(i) {
+    // in Dettaglio si va alla scheda del file
+    if (level === 'detail' && model.nodes.has(`f:${i}`)) {
+      goTo(`f:${i}`)
+
+      return
+    }
     goTo(FILES[i].n)
     const row = panel.querySelector(`.f[data-file="${i}"]`)
     if (row === null) return
@@ -910,8 +1051,21 @@
     row.scrollIntoView({ block: 'center' })
   }
 
-  function cardClick(id) {
-    if (nodeOf(id).children.length === 0) {
+  function cardClick(id, isPath) {
+    // Maiusc+clic: la strada dal blocco scelto prima a questo
+    if (isPath && selected !== null && selected !== id && cur.has(selected)) {
+      showPath(selected, id)
+
+      return
+    }
+    path = null
+    const node = nodeOf(id)
+    if (node.file !== undefined) {
+      openFile(node.file, id)
+
+      return
+    }
+    if (node.children.length === 0) {
       openPanel(id)
 
       return
@@ -1064,7 +1218,7 @@
     if (event.pointerType === 'mouse' && event.button !== 0) return
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
     if (pointers.size === 1) {
-      drag = { id: event.pointerId, x: event.clientX, y: event.clientY, vx: view.x, vy: view.y, moved: false, target: event.target }
+      drag = { id: event.pointerId, x: event.clientX, y: event.clientY, vx: view.x, vy: view.y, moved: false, target: event.target, shift: event.shiftKey }
     } else if (pointers.size === 2) {
       const [p, q] = [...pointers.values()]
       pinch = { dist: Math.hypot(p.x - q.x, p.y - q.y), mx: (p.x + q.x) / 2, my: (p.y + q.y) / 2 }
@@ -1119,12 +1273,12 @@
     if (wasDrag === null) return
     drag = null
     stage.classList.remove('panning')
-    if (!wasDrag.moved && !isCancel) clickAt(wasDrag.target)
+    if (!wasDrag.moved && !isCancel) clickAt(wasDrag.target, wasDrag.shift)
   }
   stage.addEventListener('pointerup', event => release(event, false))
   stage.addEventListener('pointercancel', event => release(event, true))
 
-  function clickAt(target) {
+  function clickAt(target, isShift) {
     if (!(target instanceof Element) || target.closest('.hit')) return
     const el = target.closest('.card')
     if (el === null) {
@@ -1134,7 +1288,7 @@
     }
     if (el.classList.contains('leaving')) return
     if (target.closest('.info')) openPanel(el.dataset.id)
-    else cardClick(el.dataset.id)
+    else cardClick(el.dataset.id, isShift)
   }
 
   stage.addEventListener(
@@ -1188,7 +1342,7 @@
     const el = event.target.closest ? event.target.closest('.card') : null
     if (el === null) return
     event.preventDefault()
-    cardClick(el.dataset.id)
+    cardClick(el.dataset.id, event.shiftKey)
   })
 
   edgesBase.addEventListener('mouseover', event => {
@@ -1279,6 +1433,7 @@
       else if (prefsEl.classList.contains('on')) openPrefs(false)
       else closePanel()
     } else if (event.key === '?') openSheet(!sheet.classList.contains('on'))
+    else if (event.key.toLowerCase() === 'l' && !event.metaKey && !event.ctrlKey) setLevel({ simple: 'normal', normal: 'detail', detail: 'simple' }[level])
     else if (event.key === '1') zoomBy(1 / view.k)
     else if (event.key.toLowerCase() === 'm' && !event.metaKey && !event.ctrlKey) setPrefs({ minimap: !prefs.minimap })
     else if (event.key.toLowerCase() === 't' && !event.metaKey && !event.ctrlKey) cycleTheme()
@@ -1491,7 +1646,45 @@
   })
   const cycleTheme = () => setPrefs({ theme: { auto: 'light', light: 'dark', dark: 'auto' }[prefs.theme] || 'auto' })
 
+  // ---------------------------------------------------------------- livelli di dettaglio
+  const levelsEl = $('lvl')
+  function renderLevels() {
+    levelsEl.setAttribute('aria-label', T.level)
+    levelsEl.innerHTML = T.levels
+      .map(([value, label]) => `<button type="button" class="btn${value === level ? ' on' : ''}" data-level="${value}" role="radio" aria-checked="${value === level}">${esc(label)}</button>`)
+      .join('')
+  }
+  function setLevel(next) {
+    if (!['simple', 'normal', 'detail'].includes(next) || next === level) return
+    finishAnim()
+    level = next
+    prefs.level = next
+    savePrefs()
+    for (const el of cards.values()) el.remove()
+    cards.clear()
+    cur.clear()
+    for (const el of frameEls.values()) el.remove()
+    frameEls.clear()
+    curF.clear()
+    for (const id of [...recs.keys()]) dropRec(id)
+    model = modelFor(next)
+    for (const id of [...expanded]) if (!model.nodes.has(id) || model.nodes.get(id).children.length === 0) expanded.delete(id)
+    hover = null
+    path = null
+    if (selected !== null && !model.nodes.has(selected)) closePanel()
+    userMoved = false
+    renderLevels()
+    relayout({ fit: true })
+  }
+  levelsEl.addEventListener('click', event => {
+    const button = event.target.closest('[data-level]')
+    if (button !== null) setLevel(button.dataset.level)
+  })
+
   // ---------------------------------------------------------------- partenza
+  level = ['simple', 'normal', 'detail'].includes(prefs.level) ? prefs.level : 'normal'
+  model = modelFor(level)
+  renderLevels()
   for (const id of load()) if (model.nodes.has(id) && nodeOf(id).children.length > 0) expanded.add(id)
   // un blocco aperto ha senso solo se lo sono anche quelli che lo contengono
   for (const id of [...expanded]) if (model.chain.get(id).slice(1).some(up => !expanded.has(up))) expanded.delete(id)

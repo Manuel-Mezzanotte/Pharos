@@ -49,7 +49,12 @@ Run the Pharos skill now: invoke the `pharos:map` skill with the Skill tool, pas
 
 ## On the page
 
+- Three levels in the bar:
+  - **Simple:** only the main blocks and outside services, for explaining the project.
+  - **Normal:** blocks and parts.
+  - **Detail:** every part you open shows its files, with the arrows file by file.
 - Click a block to open its section, hover it to light up its arrows, click a part to list its files.
+- Shift-click a second block or file: the way between them lights up.
 - ⌘K or `/` searches blocks, files and functions.
 - The minimap (top right) moves the view.
 - The settings button sets the theme (auto, light, dark), the accent colour, the minimap, the names on arrows and animations.
